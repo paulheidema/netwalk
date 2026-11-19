@@ -4,110 +4,81 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Signal Dash">
-<meta name="theme-color" content="#f4f1ea">
-<title>NetWalk · Signal Dashboard</title>
+<meta name="apple-mobile-web-app-title" content="Dashboard">
+<meta name="theme-color" content="#ffffff">
+<title>NetWalk · Dashboard</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  :root{--bg:#f4f1ea;--card:#fffdf8;--ink:#1d2321;--muted:#6b716d;--line:#1d23211a;--accent:#0f6b5c}
+  :root{--ink:#111;--muted:#444;--line:#e3e3e3;--accent:#0b5e52}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-  header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 6px}
-  header h1{font:700 20px/1.1 -apple-system,system-ui;margin:0;letter-spacing:-.01em}
-  header small{display:block;color:var(--muted);font-weight:500;font-size:12px;margin-top:3px}
-  .back{color:var(--accent);text-decoration:none;font-weight:600;font-size:14px}
-  main{padding:6px 14px 40px;max-width:560px;margin:0 auto}
-  .card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 1px 0 #0000000a,0 6px 20px -12px #0003}
-  .hero{display:flex;gap:16px;align-items:center}
-  .gauge{position:relative;width:150px;height:150px;flex:none}
+  body{margin:0;background:#fff;color:var(--ink);font:19px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;padding:calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 40px)}
+  main{max-width:480px;margin:0 auto}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .top h1{font-size:26px;margin:0}
+  .top a{color:var(--accent);font-size:17px;font-weight:600;text-decoration:none}
+  .hero{text-align:center;padding:10px 0 4px}
+  .gauge{position:relative;width:220px;height:220px;margin:0 auto}
   .gauge svg{width:100%;height:100%;transform:rotate(-225deg)}
   .gauge .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .gauge .num b{font:700 44px/1 -apple-system,system-ui;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-  .gauge .num span{font-size:13px;font-weight:600;margin-top:4px}
-  .hero-side{flex:1;min-width:0}
-  .hero-side .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
-  .hero-side .status{font-weight:600;margin:4px 0 12px;font-size:14px}
-  .go{width:100%;border:0;border-radius:14px;padding:14px;font:700 16px -apple-system,system-ui;background:var(--accent);color:#fff}
-  .go.stop{background:#1d2321}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .metric h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 10px;display:flex;justify-content:space-between}
-  .big{font:700 30px/1 -apple-system,system-ui;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  .big small{font-size:14px;font-weight:600;color:var(--muted);margin-left:2px}
-  .rows{margin-top:12px;font-size:13px}
-  .rows div{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--line)}
-  .rows span:last-child{font-weight:600;font-variant-numeric:tabular-nums}
-  .bar{height:6px;border-radius:3px;background:#0000000d;margin-top:10px;overflow:hidden}
-  .bar i{display:block;height:100%;border-radius:3px;transition:width .5s}
-  .spark{width:100%;height:56px;display:block}
-  #map{height:330px;border-radius:14px;margin-top:10px;z-index:0}
-  .maphead{display:flex;justify-content:space-between;align-items:center;gap:10px}
-  .maphead h2{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
-  .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;margin-top:10px;color:var(--muted)}
-  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
-  .note{font-size:12.5px;color:var(--muted);line-height:1.45}
-  details summary{font-weight:700;cursor:pointer;list-style:none}
-  details summary::after{content:'›';float:right;transform:rotate(90deg);opacity:.5}
-  .gps{font-size:12px;color:var(--muted);margin-top:8px}
+  .gauge .num b{font-size:60px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+  .gauge .num span{font-size:24px;font-weight:700;margin-top:6px}
+  .status{font-size:18px;color:var(--muted);margin:6px 0 16px}
+  .go{width:100%;border:0;border-radius:16px;padding:20px;font:700 22px -apple-system,system-ui;background:var(--accent);color:#fff}
+  .go.stop{background:#111}
+  .list{margin-top:24px;border-top:1px solid var(--line)}
+  .list div{display:flex;justify-content:space-between;align-items:baseline;padding:16px 2px;border-bottom:1px solid var(--line);font-size:20px}
+  .list b{font-size:26px;font-variant-numeric:tabular-nums}
+  h2{font-size:22px;margin:30px 0 10px}
+  .spark{width:100%;height:70px;display:block}
+  .seg{display:flex;gap:8px;margin-bottom:10px}
+  .seg button{flex:1;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:12px;font:700 18px -apple-system,system-ui}
+  .seg button.on{background:var(--accent);color:#fff}
+  #map{height:360px;border-radius:14px;z-index:0}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:16px;margin-top:12px}
+  .legend i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:6px;vertical-align:-1px}
+  .note{font-size:17px;color:var(--muted)}
+  details{margin-top:30px;border-top:1px solid var(--line);padding-top:16px}
+  details summary{font-size:20px;font-weight:700;cursor:pointer}
+  .nw-panel{font-size:16px}
 </style>
 </head>
 <body>
-<header>
-  <div><h1>Signal Dashboard</h1><small>NetWalk · version 1</small></div>
-  <a class="back" href="./">All versions</a>
-</header>
 <main>
-  <section class="card hero">
+  <div class="top"><h1>Dashboard</h1><a href="./">Back</a></div>
+
+  <section class="hero">
     <div class="gauge">
-      <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="none" stroke="#0000000d" stroke-width="12" stroke-dasharray="235.6 314.2" stroke-linecap="round"/>
-        <circle id="arc" cx="60" cy="60" r="50" fill="none" stroke="#ccc" stroke-width="12" stroke-dasharray="0 314.2" stroke-linecap="round" style="transition:stroke-dasharray .6s,stroke .6s"/></svg>
-      <div class="num"><b id="score">—</b><span id="band">Not started</span></div>
+      <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="none" stroke="#eee" stroke-width="13" stroke-dasharray="235.6 314.2" stroke-linecap="round"/>
+        <circle id="arc" cx="60" cy="60" r="50" fill="none" stroke="#ccc" stroke-width="13" stroke-dasharray="0 314.2" stroke-linecap="round" style="transition:stroke-dasharray .6s,stroke .6s"/></svg>
+      <div class="num"><b id="score">—</b><span id="band">Strength</span></div>
     </div>
-    <div class="hero-side">
-      <div class="lbl">Signal strength (estimated)</div>
-      <div class="status" id="status">Tap start, then walk.</div>
-      <button class="go" id="go">Start measuring</button>
-      <div class="gps" id="gps">GPS: off</div>
-    </div>
+    <div class="status" id="status">Tap Start, then walk.</div>
+    <button class="go" id="go">Start</button>
   </section>
 
-  <section class="grid">
-    <div class="card metric">
-      <h2>Strength</h2>
-      <div class="big" id="dl">—<small>Mbps</small></div>
-      <div class="bar"><i id="dlbar" style="width:0"></i></div>
-      <div class="rows">
-        <div><span>Ping</span><span id="rtt">—</span></div>
-        <div><span>Network type</span><span id="net">—</span></div>
-      </div>
-    </div>
-    <div class="card metric">
-      <h2>Reliability</h2>
-      <div class="big" id="rel">—<small>%</small></div>
-      <div class="bar"><i id="relbar" style="width:0"></i></div>
-      <div class="rows">
-        <div><span>Jitter</span><span id="jit">—</span></div>
-        <div><span>Dropouts (5 min)</span><span id="drops">—</span></div>
-      </div>
-    </div>
-  </section>
+  <div class="list">
+    <div><span>Speed</span><b id="dl">—</b></div>
+    <div><span>Ping</span><b id="rtt">—</b></div>
+    <div><span>Reliable</span><b id="rel">—</b></div>
+    <div><span>Dropouts (5 min)</span><b id="drops">—</b></div>
+    <div><span>GPS</span><b id="gps" style="font-size:20px">Off</b></div>
+  </div>
 
-  <section class="card">
-    <div class="maphead"><h2>Last 30 readings</h2><span class="note" id="sparkinfo"></span></div>
-    <svg class="spark" id="spark" viewBox="0 0 300 56" preserveAspectRatio="none"></svg>
-  </section>
+  <h2>Recent readings</h2>
+  <svg class="spark" id="spark" viewBox="0 0 300 70" preserveAspectRatio="none"></svg>
+  <div class="note" id="sparkinfo"></div>
 
-  <section class="card">
-    <div class="maphead"><h2>Where you've been</h2><div id="mapseg"></div></div>
-    <div id="map"></div>
-    <div class="legend" id="legend"></div>
-    <p class="note" id="mapnote" style="margin:10px 0 0"></p>
-  </section>
+  <h2>Map</h2>
+  <div class="seg" id="mapseg">
+    <button class="on" data-v="trail">Today</button>
+    <button data-v="zones">All zones</button>
+  </div>
+  <div id="map"></div>
+  <div class="legend" id="legend"></div>
 
-  <section class="card">
-    <details><summary>Settings &amp; your data</summary><div id="panel"></div></details>
-  </section>
-
-  <p class="note" style="padding:0 6px">iPhones don't let web pages read signal bars, so “strength” here is worked out from what your connection actually does: download speed, ping time and dropped requests. That's usually a better guide to whether things will work than bars are.</p>
+  <details><summary>Settings</summary><div id="panel"></div>
+    <p class="note">iPhones don't show signal bars to web pages, so strength is worked out from speed, ping and dropouts.</p>
+  </details>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -117,15 +88,16 @@
 const C = NetCore, U = NetUI, $ = id => document.getElementById(id);
 let view = 'trail';
 
-// ----- map -----
-const map = L.map('map', { zoomControl: false, attributionControl: true }).setView(C.ROSEAU, 15);
+const map = L.map('map', { zoomControl: false }).setView(C.ROSEAU, 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
 const layer = L.layerGroup().addTo(map);
-const me = L.circleMarker(C.ROSEAU, { radius: 8, color: '#fff', weight: 3, fillColor: '#2b6fff', fillOpacity: 1 });
-const meAcc = L.circle(C.ROSEAU, { radius: 10, color: '#2b6fff', weight: 1, fillOpacity: .08 });
+const me = L.circleMarker(C.ROSEAU, { radius: 9, color: '#fff', weight: 3, fillColor: '#2b6fff', fillOpacity: 1 });
 let fitted = false;
 
-$('mapseg').append(U.seg([['trail', 'Today’s dots'], ['zones', 'All-time zones']], view, v => { view = v; drawMap(true); }));
+document.querySelectorAll('#mapseg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#mapseg button').forEach(x => x.classList.toggle('on', x === b));
+  view = b.dataset.v; drawMap(true);
+});
 $('legend').innerHTML = C.BANDS.map(b => `<span><i style="background:${b.color}"></i>${b.label}</span>`).join('');
 
 function drawMap(fit) {
@@ -137,69 +109,58 @@ function drawMap(fit) {
     if (!pts.length) pts = all.filter(s => s.lat != null).slice(-400);
     pts.forEach(s => {
       const b = C.band(s.score);
-      L.circleMarker([s.lat, s.lon], { radius: 6, stroke: false, fillColor: b.color, fillOpacity: .85 })
-        .bindPopup(`<b style="color:${b.color}">${b.label}</b> · ${s.score}<br>${U.fmt.time(s.t)} · ping ${U.fmt.ms(s.rtt)}${s.dl != null ? ' · ' + U.fmt.mbps(s.dl) : ''}`).addTo(layer);
+      L.circleMarker([s.lat, s.lon], { radius: 7, stroke: false, fillColor: b.color, fillOpacity: .9 })
+        .bindPopup(`<b style="color:${b.color}">${b.label}</b><br>${U.fmt.time(s.t)} · ping ${U.fmt.ms(s.rtt)}${s.dl != null ? ' · ' + U.fmt.mbps(s.dl) : ''}`).addTo(layer);
     });
-    $('mapnote').textContent = pts.length ? `${pts.length} readings shown. Each dot is one test.` : 'Your readings will appear here as you walk.';
   } else {
     const zones = C.hexZones(all, 45, 'overall');
     zones.forEach(z => {
       const b = C.band(z.value);
-      L.polygon(z.corners, { color: b.color, weight: 1, fillColor: b.color, fillOpacity: .25 + .45 * z.confidence }).bindPopup(U.zonePopup(z)).addTo(layer);
+      L.polygon(z.corners, { color: b.color, weight: 1, fillColor: b.color, fillOpacity: .3 + .45 * z.confidence }).bindPopup(U.zonePopup(z)).addTo(layer);
     });
     pts = zones.map(z => ({ lat: z.center[0], lon: z.center[1] }));
-    $('mapnote').textContent = zones.length ? `${zones.length} zones built from every walk so far. Paler zones have fewer readings, so trust them less.` : 'Zones appear once you have some readings.';
   }
   if ((fit || !fitted) && pts.length) { map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lon])).pad(.15)); fitted = true; }
 }
 
-// ----- live readouts -----
 function setGauge(score) {
-  const b = C.band(score); const len = 235.6 * (score / 100);
-  $('arc').setAttribute('stroke-dasharray', `${len} 314.2`); $('arc').setAttribute('stroke', b.color);
+  const b = C.band(score);
+  $('arc').setAttribute('stroke-dasharray', `${235.6 * score / 100} 314.2`); $('arc').setAttribute('stroke', b.color);
   $('score').textContent = score; $('band').textContent = b.label; $('band').style.color = b.color;
 }
-function bar(id, pct, color) { $(id).style.width = Math.max(2, pct) + '%'; $(id).style.background = color; }
 
 function render(s) {
-  if (!s) return;
   setGauge(s.score);
-  const lastDl = C.state.lastDl;
-  $('dl').innerHTML = (lastDl == null ? '—' : (lastDl >= 10 ? Math.round(lastDl) : lastDl.toFixed(1))) + '<small>Mbps</small>';
-  bar('dlbar', s.speedScore ?? 0, C.band(s.speedScore ?? 0).color);
+  $('dl').textContent = U.fmt.mbps(C.state.lastDl);
   $('rtt').textContent = U.fmt.ms(s.rtt);
-  $('net').textContent = s.net ? s.net.toUpperCase() : 'Not shown on iPhone';
   const rel = C.reliabilityNow();
-  $('rel').innerHTML = (rel ?? '—') + '<small>%</small>';
-  bar('relbar', rel ?? 0, C.band(rel ?? 0).color);
-  $('jit').textContent = U.fmt.ms(s.jit);
-  const recent = C.samples().filter(x => !x.demo && x.t > Date.now() - 300000);
-  $('drops').textContent = recent.filter(x => x.loss >= 1).length;
+  $('rel').textContent = U.fmt.pct(rel); $('rel').style.color = C.band(rel ?? 0).color;
+  $('drops').textContent = C.samples().filter(x => !x.demo && x.t > Date.now() - 300000 && x.loss >= 1).length;
   spark();
 }
 
 function spark() {
   const list = C.samples().filter(s => !s.demo).slice(-30);
   const svg = $('spark'); svg.innerHTML = '';
-  if (!list.length) { $('sparkinfo').textContent = 'No readings yet'; return; }
+  if (!list.length) { $('sparkinfo').textContent = 'No readings yet.'; return; }
   const w = 300 / 30;
   list.forEach((s, i) => {
-    const h = Math.max(3, s.score / 100 * 52);
-    svg.insertAdjacentHTML('beforeend', `<rect x="${i * w + 1}" y="${56 - h}" width="${w - 2}" height="${h}" rx="2" fill="${C.band(s.score).color}"/>`);
+    const h = Math.max(4, s.score / 100 * 66);
+    svg.insertAdjacentHTML('beforeend', `<rect x="${i * w + 1}" y="${70 - h}" width="${w - 2}" height="${h}" rx="2" fill="${C.band(s.score).color}"/>`);
   });
-  $('sparkinfo').textContent = `since ${U.fmt.time(list[0].t)}`;
+  $('sparkinfo').textContent = `Taller = better. Since ${U.fmt.time(list[0].t)}.`;
 }
 
 C.on('sample', s => { render(s); drawMap(false); });
-C.on('status', t => $('status').textContent = t === 'Measuring' ? 'Measuring as you walk' : t);
+C.on('status', t => $('status').textContent = t === 'Measuring' ? 'Measuring as you walk…' : t);
 C.on('position', p => {
   if (p) {
-    $('gps').textContent = `GPS: ±${Math.round(p.acc)} m`;
-    me.setLatLng([p.lat, p.lon]).addTo(map); meAcc.setLatLng([p.lat, p.lon]).setRadius(p.acc).addTo(map);
+    $('gps').textContent = `±${Math.round(p.acc)} m`;
+    me.setLatLng([p.lat, p.lon]).addTo(map);
     if (!fitted) { map.setView([p.lat, p.lon], 16); fitted = true; }
-  } else $('gps').textContent = C.state.posErr || 'GPS: waiting';
+  } else $('gps').textContent = C.state.posErr ? 'Not allowed' : 'Waiting…';
 });
-C.on('running', on => { $('go').textContent = on ? 'Stop' : 'Start measuring'; $('go').classList.toggle('stop', on); if (!on) $('gps').textContent = 'GPS: off'; });
+C.on('running', on => { $('go').textContent = on ? 'Stop' : 'Start'; $('go').classList.toggle('stop', on); if (!on) $('gps').textContent = 'Off'; });
 $('go').onclick = () => C.state.running ? C.stop() : C.start();
 
 $('panel').append(U.dataPanel(() => { drawMap(true); spark(); }));
