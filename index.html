@@ -3,37 +3,359 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="NetWalk">
 <meta name="theme-color" content="#ffffff">
 <title>NetWalk</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
+  :root{--ink:#111;--muted:#444;--line:#e3e3e3;--accent:#0b5e52}
   *{box-sizing:border-box}
-  body{margin:0;background:#fff;color:#111;font:19px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;padding:calc(env(safe-area-inset-top) + 28px) 20px calc(env(safe-area-inset-bottom) + 30px)}
-  main{max-width:480px;margin:0 auto}
-  h1{font-size:34px;margin:0 0 6px}
-  p{margin:0 0 26px;color:#333}
-  a.btn{display:block;text-decoration:none;color:#fff;background:#0b5e52;border-radius:16px;padding:20px 22px;margin-bottom:14px}
-  a.btn b{display:block;font-size:22px}
-  a.btn span{font-size:17px;opacity:.9}
-  h2{font-size:20px;margin:30px 0 8px}
-  ul{margin:0;padding-left:22px;color:#333}
-  li{margin:6px 0}
+  html,body{margin:0;background:#fff;color:var(--ink);font:19px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+  main{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 190px)}
+  h1{font-size:26px;margin:0 0 6px}
+  h2{font-size:22px;margin:28px 0 10px}
+  .tab{display:none}.tab.on{display:block}
+  .note{font-size:17px;color:var(--muted)}
+
+  /* bottom: walk bar + tabs, visible on every tab */
+  .dock{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:1000;padding:10px 14px calc(env(safe-area-inset-bottom) + 4px)}
+  .walkbar{display:flex;gap:10px;align-items:center;max-width:480px;margin:0 auto}
+  .chip{width:56px;height:56px;border-radius:14px;background:#eee;color:#fff;display:flex;align-items:center;justify-content:center;font:800 22px -apple-system,system-ui;flex:none;transition:background .4s}
+  .go{flex:1;border:0;border-radius:14px;padding:16px;font:700 20px -apple-system,system-ui;background:var(--accent);color:#fff}
+  .go.stop{background:#111}
+  .go small{display:block;font-size:14px;font-weight:600;opacity:.8}
+  .pocketbtn{width:56px;height:56px;border-radius:14px;border:2px solid var(--line);background:#fff;font-size:22px;flex:none}
+  nav{display:flex;max-width:480px;margin:8px auto 0}
+  nav button{flex:1;border:0;background:none;padding:8px 0 4px;font:700 16px -apple-system,system-ui;color:#888;border-top:3px solid transparent}
+  nav button.on{color:var(--accent);border-top-color:var(--accent)}
+
+  /* NOW */
+  .gauge{position:relative;width:210px;height:210px;margin:6px auto 0}
+  .gauge svg{width:100%;height:100%;transform:rotate(-225deg)}
+  .gauge .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge .num b{font-size:60px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+  .gauge .num span{font-size:22px;font-weight:700;margin-top:6px}
+  .status{text-align:center;font-size:18px;color:var(--muted);margin:2px 0 8px}
+  .list{border-top:1px solid var(--line)}
+  .list div{display:flex;justify-content:space-between;align-items:baseline;padding:14px 2px;border-bottom:1px solid var(--line);font-size:20px}
+  .list b{font-size:24px;font-variant-numeric:tabular-nums}
+  .yes{color:#12a37f}.no{color:#d8314a}
+  .spark{width:100%;height:70px;display:block}
+
+  /* MAP */
+  .seg{display:flex;gap:8px;margin-bottom:10px}
+  .seg button{flex:1;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:11px 4px;font:700 17px -apple-system,system-ui}
+  .seg button.on{background:var(--accent);color:#fff}
+  #map{height:calc(100vh - 360px);min-height:340px;border-radius:14px;z-index:0}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:16px;margin-top:12px}
+  .legend i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:6px;vertical-align:-1px}
+  .follow{margin-top:10px;width:100%;border:2px solid var(--line);background:#fff;border-radius:12px;padding:12px;font:700 17px -apple-system,system-ui;color:var(--ink)}
+
+  /* DAYS */
+  .day{border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+  .day h3{margin:0;font-size:21px;display:flex;justify-content:space-between;align-items:baseline}
+  .day h3 small{font-size:15px;font-weight:500;color:var(--muted)}
+  .stack{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:12px 0}
+  .stack i{display:block;height:100%}
+  .day .rows div{display:flex;justify-content:space-between;padding:6px 0;font-size:17px}
+  .day .rows b{font-variant-numeric:tabular-nums}
+  .trend{font-size:16px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+  .spot{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .badge{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 17px -apple-system,system-ui;color:#fff;flex:none}
+  .spot .t{font-weight:700;font-size:18px}.spot .s{font-size:15px;color:var(--muted)}
+  details{margin-top:28px;border-top:1px solid var(--line);padding-top:16px}
+  details summary{font-size:20px;font-weight:700;cursor:pointer}
+  .nw-panel{font-size:16px}
+
+  /* banner + pocket mode */
+  .banner{background:#fff4d6;border:1px solid #f2c12e;border-radius:12px;padding:12px 14px;font-size:16px;margin-bottom:12px;display:none}
+  .banner.on{display:block}
+  #pocket{position:fixed;inset:0;background:#000;color:#555;z-index:3000;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;font-size:18px}
+  #pocket.on{display:flex}
+  #pocket b{color:#777;font-size:44px;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
 <main>
-  <h1>NetWalk</h1>
-  <p>Test your phone's internet as you walk. Pick one:</p>
+  <div class="banner" id="banner"></div>
 
-  <a class="btn" href="v1.html"><b>1. Dashboard</b><span>Simple gauges and numbers</span></a>
-  <a class="btn" href="v2.html"><b>2. Map</b><span>Big map with coloured zones</span></a>
-  <a class="btn" href="v3.html"><b>3. Daily report</b><span>What works here, best spots, each day</span></a>
+  <!-- NOW -->
+  <section class="tab on" id="t-now">
+    <h1>NetWalk</h1>
+    <div class="gauge">
+      <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="none" stroke="#eee" stroke-width="13" stroke-dasharray="235.6 314.2" stroke-linecap="round"/>
+        <circle id="arc" cx="60" cy="60" r="50" fill="none" stroke="#ccc" stroke-width="13" stroke-dasharray="0 314.2" stroke-linecap="round" style="transition:stroke-dasharray .6s,stroke .6s"/></svg>
+      <div class="num"><b id="score">—</b><span id="band">Strength</span></div>
+    </div>
+    <div class="status" id="status">Tap Start walk below.</div>
 
-  <h2>Before you walk</h2>
-  <ul>
-    <li>Turn Wi-Fi off.</li>
-    <li>Allow location.</li>
-    <li>Keep the screen on.</li>
-  </ul>
+    <div class="list">
+      <div><span>Speed</span><b id="dl">—</b></div>
+      <div><span>Ping</span><b id="rtt">—</b></div>
+      <div><span>Reliable</span><b id="rel">—</b></div>
+      <div><span>Dropouts (5 min)</span><b id="drops">—</b></div>
+      <div><span>GPS</span><b id="gps" style="font-size:20px">Off</b></div>
+    </div>
+
+    <h2>What works here</h2>
+    <div class="list" id="uses"></div>
+
+    <h2>This walk</h2>
+    <div class="list">
+      <div><span>Time</span><b id="w-time">—</b></div>
+      <div><span>Distance</span><b id="w-dist">—</b></div>
+      <div><span>Readings</span><b id="w-n">—</b></div>
+    </div>
+
+    <h2>Recent readings</h2>
+    <svg class="spark" id="spark" viewBox="0 0 300 70" preserveAspectRatio="none"></svg>
+    <div class="note" id="sparkinfo">Taller = better.</div>
+  </section>
+
+  <!-- MAP -->
+  <section class="tab" id="t-map">
+    <div class="seg" id="viewseg">
+      <button class="on" data-v="walk">This walk</button>
+      <button data-v="zones">All zones</button>
+    </div>
+    <div class="seg" id="metricseg" style="display:none">
+      <button class="on" data-v="overall">Overall</button>
+      <button data-v="speed">Speed</button>
+      <button data-v="reliability">Reliable</button>
+    </div>
+    <div id="map"></div>
+    <div class="legend" id="legend"></div>
+    <button class="follow" id="follow">Centre on me</button>
+    <p class="note" id="mapnote"></p>
+  </section>
+
+  <!-- DAYS -->
+  <section class="tab" id="t-days">
+    <h1>Your days</h1>
+    <p class="note" id="daysnote"></p>
+    <div id="days"></div>
+    <h2>Best spots</h2>
+    <div id="best"></div>
+    <h2>Spots to avoid</h2>
+    <div id="worst"></div>
+    <details><summary>Settings</summary><div id="panel"></div>
+      <p class="note">iPhones don't show signal bars to web pages, so strength is worked out from speed, ping and dropouts.</p>
+    </details>
+  </section>
 </main>
+
+<div class="dock">
+  <div class="walkbar">
+    <div class="chip" id="chip">–</div>
+    <button class="go" id="go">Start walk</button>
+    <button class="pocketbtn" id="pocketbtn" title="Pocket mode">🌙</button>
+  </div>
+  <nav>
+    <button class="on" data-t="now">Now</button>
+    <button data-t="map">Map</button>
+    <button data-t="days">Days</button>
+  </nav>
+</div>
+
+<div id="pocket">
+  <div>Pocket mode<br><small>Still measuring. Screen stays on but dark.</small></div>
+  <p><b id="p-score">—</b><br><span id="p-band"></span></p>
+  <div id="p-time"></div>
+  <p style="margin-top:40px">Tap anywhere to come back</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="core.js"></script>
+<script src="ui.js"></script>
+<script>
+const C = NetCore, U = NetUI, $ = id => document.getElementById(id);
+const dist = (a, b) => { const k = Math.cos(a[0] * Math.PI / 180); return Math.hypot((a[0] - b[0]) * 111320, (a[1] - b[1]) * 111320 * k); };
+
+// ---------- tabs ----------
+let tab = 'now';
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  tab = b.dataset.t;
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 't-' + tab));
+  if (tab === 'map') setTimeout(() => { map.invalidateSize(); drawMap(true); }, 30);
+  if (tab === 'days') drawDays();
+  window.scrollTo(0, 0);
+});
+
+// ---------- NOW ----------
+const USES = [
+  ['WhatsApp messages', s => s.loss < 1 && (s.rtt ?? 9999) < 2500],
+  ['Web & email', s => s.loss < .5 && (s.rtt ?? 9999) < 800 && (C.state.lastDl ?? 2) >= 1],
+  ['Voice calls', s => s.loss === 0 && (s.rtt ?? 9999) < 300 && (s.jit ?? 0) < 60 && (C.state.lastDl ?? 1) >= .5],
+  ['Video calls', s => s.loss === 0 && (s.rtt ?? 9999) < 200 && (C.state.lastDl ?? 0) >= 4 && (C.reliabilityNow() ?? 0) >= 95]
+];
+$('uses').innerHTML = USES.map(([n]) => `<div><span>${n}</span><b>—</b></div>`).join('');
+
+function setGauge(score, label) {
+  const b = C.band(score);
+  $('arc').setAttribute('stroke-dasharray', `${235.6 * score / 100} 314.2`); $('arc').setAttribute('stroke', b.color);
+  $('score').textContent = score; $('band').textContent = label || b.label; $('band').style.color = b.color;
+  $('chip').textContent = score; $('chip').style.background = b.color;
+  $('p-score').textContent = score; $('p-band').textContent = b.label;
+}
+
+function renderNow(s) {
+  setGauge(s.score);
+  $('dl').textContent = U.fmt.mbps(C.state.lastDl);
+  $('rtt').textContent = U.fmt.ms(s.rtt);
+  const rel = C.reliabilityNow();
+  $('rel').textContent = U.fmt.pct(rel); $('rel').style.color = C.band(rel ?? 0).color;
+  $('drops').textContent = C.samples().filter(x => !x.demo && x.t > Date.now() - 300000 && x.loss >= 1).length;
+  $('uses').innerHTML = USES.map(([n, f]) => { const ok = f(s); return `<div><span>${n}</span><b class="${ok ? 'yes' : 'no'}">${ok ? 'Yes' : 'Unlikely'}</b></div>`; }).join('');
+  spark();
+}
+
+function spark() {
+  const list = C.samples().filter(s => !s.demo).slice(-30);
+  const svg = $('spark'); svg.innerHTML = '';
+  if (!list.length) { $('sparkinfo').textContent = 'No readings yet.'; return; }
+  const w = 300 / 30;
+  list.forEach((s, i) => { const h = Math.max(4, s.score / 100 * 66); svg.insertAdjacentHTML('beforeend', `<rect x="${i * w + 1}" y="${70 - h}" width="${w - 2}" height="${h}" rx="2" fill="${C.band(s.score).color}"/>`); });
+  $('sparkinfo').textContent = `Taller = better. Since ${U.fmt.time(list[0].t)}.`;
+}
+
+// walk stats (persisted, so a reload doesn't lose them)
+let lastPos = null;
+function walkSamples() { const w = C.walk(); if (!w) return []; return C.samples().filter(s => !s.demo && s.t >= w.start && (!w.end || w.active || s.t <= w.end)); }
+function renderWalk() {
+  const w = C.walk();
+  if (!w) { ['w-time', 'w-dist', 'w-n'].forEach(id => $(id).textContent = '—'); return; }
+  const end = w.active ? Date.now() : (w.end || Date.now());
+  const m = Math.floor((end - w.start) / 60000);
+  const t = Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+  $('w-time').textContent = t; $('p-time').textContent = 'Walking ' + t;
+  $('w-dist').textContent = w.dist < 1000 ? Math.round(w.dist) + ' m' : (w.dist / 1000).toFixed(1) + ' km';
+  $('w-n').textContent = walkSamples().length;
+}
+setInterval(renderWalk, 10000);
+
+// ---------- MAP ----------
+const map = L.map('map', { zoomControl: false }).setView(C.ROSEAU, 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+const me = L.circleMarker(C.ROSEAU, { radius: 10, color: '#fff', weight: 3, fillColor: '#2b6fff', fillOpacity: 1 });
+let view = 'walk', metric = 'overall', follow = true, fitted = false;
+map.on('dragstart', () => follow = false);
+function segWire(id, fn) { document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => { document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); }); }
+segWire('viewseg', v => { view = v; $('metricseg').style.display = v === 'zones' ? 'flex' : 'none'; drawMap(true); });
+segWire('metricseg', v => { metric = v; drawMap(false); });
+$('legend').innerHTML = C.BANDS.map(b => `<span><i style="background:${b.color}"></i>${b.label}</span>`).join('');
+$('follow').onclick = () => { follow = true; const p = C.state.pos; if (p) map.setView([p.lat, p.lon], 17); else drawMap(true); };
+
+function drawMap(fit) {
+  layer.clearLayers();
+  let pts = [];
+  if (view === 'walk') {
+    let list = walkSamples().filter(s => s.lat != null);
+    if (!list.length) list = C.samples().filter(s => s.lat != null).slice(-300);
+    if (list.length > 1) L.polyline(list.map(s => [s.lat, s.lon]), { color: '#333', weight: 2, opacity: .35 }).addTo(layer);
+    list.forEach(s => {
+      const b = C.band(s.score);
+      L.circleMarker([s.lat, s.lon], { radius: 8, stroke: false, fillColor: b.color, fillOpacity: .9 })
+        .bindPopup(`<b style="color:${b.color}">${b.label}</b><br>${U.fmt.time(s.t)} · ping ${U.fmt.ms(s.rtt)}${s.dl != null ? ' · ' + U.fmt.mbps(s.dl) : ''}`).addTo(layer);
+    });
+    pts = list.map(s => [s.lat, s.lon]);
+    $('mapnote').textContent = 'Each dot is one test on this walk. Tap a dot for details.';
+  } else {
+    const zones = C.hexZones(C.samples(), 45, metric).filter(z => z.value != null);
+    zones.forEach(z => { const b = C.band(z.value); L.polygon(z.corners, { color: b.color, weight: 1, fillColor: b.color, fillOpacity: .3 + .45 * z.confidence }).bindPopup(U.zonePopup(z)).addTo(layer); });
+    pts = zones.flatMap(z => z.corners);
+    $('mapnote').textContent = zones.length ? 'Zones are built from every walk and update as you go. Paler = fewer readings. Tap a zone for details.' : 'Zones appear once you have some readings.';
+  }
+  if (C.state.pos) me.setLatLng([C.state.pos.lat, C.state.pos.lon]).addTo(map);
+  if ((fit || !fitted) && pts.length && !(follow && C.state.running && C.state.pos)) { map.fitBounds(L.latLngBounds(pts).pad(.15)); fitted = true; }
+}
+
+// ---------- DAYS ----------
+function homeGuess() {
+  const firsts = C.byDay(C.samples().filter(s => s.lat != null)).map(d => d.items.find(s => s.lat != null)).filter(Boolean);
+  return firsts.length ? [C.median(firsts.map(s => s.lat)), C.median(firsts.map(s => s.lon))] : C.ROSEAU;
+}
+function where(from, to) {
+  const d = dist(from, to); const ang = Math.atan2((to[1] - from[1]) * Math.cos(from[0] * Math.PI / 180), to[0] - from[0]) * 180 / Math.PI;
+  const dir = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((ang + 360) % 360) / 45) % 8];
+  return d < 40 ? 'Near your usual start' : `${d < 1000 ? Math.round(d / 10) * 10 + ' m' : (d / 1000).toFixed(1) + ' km'} ${dir} of your usual start`;
+}
+function drawDays() {
+  const all = C.samples(), days = C.byDay(all);
+  $('daysnote').textContent = all.length ? `${all.length} readings over ${days.length} day${days.length > 1 ? 's' : ''}.${C.hasDemo() ? ' Includes demo readings (remove in Settings).' : ''}` : 'No walks yet.';
+  $('days').innerHTML = days.map((d, i) => {
+    const prev = days[i + 1], b = C.band(d.score);
+    const stack = C.BANDS.map(bb => { const n = d.items.filter(s => C.band(s.score) === bb).length; return n ? `<i style="width:${n / d.n * 100}%;background:${bb.color}"></i>` : ''; }).join('');
+    let trend = '';
+    if (prev) { const diff = d.score - prev.score; trend = `<div class="trend">${diff === 0 ? 'Same as before' : diff > 0 ? `<span class="yes">▲ ${diff} better</span> than ${U.fmt.day(prev.day)}` : `<span class="no">▼ ${-diff} worse</span> than ${U.fmt.day(prev.day)}`}</div>`; }
+    return `<div class="day"><h3>${U.fmt.day(d.day)}<small>${Math.round((d.last - d.first) / 60000)} min</small></h3><div class="stack">${stack}</div>
+      <div class="rows"><div><span>Strength</span><b style="color:${b.color}">${d.score} · ${b.label}</b></div>
+      <div><span>Speed</span><b>${U.fmt.mbps(d.dl)}</b></div><div><span>Connected</span><b>${d.uptime}%</b></div>
+      <div><span>Dropouts</span><b>${d.items.filter(s => s.loss >= 1).length}</b></div></div>${trend}</div>`;
+  }).join('');
+  const zones = C.hexZones(all, 80, 'overall');
+  const pool = zones.filter(z => z.n >= 4).length >= 3 ? zones.filter(z => z.n >= 4) : zones;
+  const home = homeGuess();
+  const row = z => { const b = C.band(z.value); return `<div class="spot" data-lat="${z.center[0]}" data-lon="${z.center[1]}"><div class="badge" style="background:${b.color}">${z.value}</div><div><div class="t">${b.label} · ${U.fmt.mbps(z.dl)}</div><div class="s">${where(home, z.center)}</div></div></div>`; };
+  const best = pool.slice().sort((a, b) => b.value - a.value || b.n - a.n).slice(0, 3);
+  const worst = pool.slice().sort((a, b) => a.value - b.value).filter(z => z.value < 40).slice(0, 3);
+  $('best').innerHTML = best.length ? best.map(row).join('') : '<p class="note">Walk around and your best spots will show here.</p>';
+  $('worst').innerHTML = worst.length ? worst.map(row).join('') : '<p class="note">No weak spots found yet.</p>';
+  document.querySelectorAll('.spot').forEach(el => el.onclick = () => {
+    document.querySelector('nav button[data-t=map]').click();
+    view = 'zones'; document.querySelectorAll('#viewseg button').forEach(x => x.classList.toggle('on', x.dataset.v === 'zones')); $('metricseg').style.display = 'flex';
+    follow = false; setTimeout(() => { drawMap(false); map.setView([+el.dataset.lat, +el.dataset.lon], 17); }, 60);
+  });
+}
+
+// ---------- engine events ----------
+C.on('sample', s => {
+  renderNow(s); renderWalk();
+  if (tab === 'map') drawMap(false);
+});
+C.on('status', t => $('status').textContent = t === 'Measuring' ? 'Measuring as you walk…' : t);
+C.on('position', p => {
+  if (!p) { $('gps').textContent = C.state.posErr ? 'Not allowed' : 'Waiting…'; return; }
+  $('gps').textContent = `±${Math.round(p.acc)} m`;
+  const here = [p.lat, p.lon], w = C.walk();
+  if (w && w.active && p.acc < 30) {
+    if (lastPos) { const d = dist(lastPos, here); if (d > 4 && d < 300) { w.dist += d; C.saveWalk(w); } }
+    lastPos = here;
+  }
+  me.setLatLng(here).addTo(map);
+  if (follow && tab === 'map') map.setView(here, Math.max(map.getZoom(), 16));
+});
+C.on('running', on => {
+  $('go').innerHTML = on ? 'Stop walk' : 'Start walk'; $('go').classList.toggle('stop', on);
+  if (!on) { $('gps').textContent = 'Off'; $('status').textContent = 'Walk finished.'; lastPos = null; }
+  else follow = true;
+  renderWalk();
+});
+$('go').onclick = () => C.state.running ? C.stop() : C.start();
+
+// pocket mode: black screen, still measuring
+$('pocketbtn').onclick = () => { $('pocket').classList.add('on'); if (!C.state.running) C.start(); };
+$('pocket').onclick = () => $('pocket').classList.remove('on');
+
+// warn when the page was hidden mid-walk (iPhone pauses it)
+let hiddenAt = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && C.state.running) hiddenAt = Date.now();
+  if (document.visibilityState === 'visible' && hiddenAt) {
+    const mins = Math.round((Date.now() - hiddenAt) / 60000); hiddenAt = null;
+    if (mins >= 1) { $('banner').textContent = `The walk paused for ${mins} min while the screen was off or another app was open. It's measuring again now.`; $('banner').classList.add('on'); setTimeout(() => $('banner').classList.remove('on'), 12000); }
+  }
+});
+
+$('panel').append(U.dataPanel(() => { drawDays(); drawMap(true); spark(); }));
+
+// startup: pick up a walk that was running, otherwise show last reading
+const last = C.samples().filter(s => !s.demo).slice(-1)[0];
+if (last) { setGauge(last.score, 'Last reading'); spark(); }
+if (C.resumeIfActive()) { $('banner').textContent = 'Your walk was still going, so it has carried on.'; $('banner').classList.add('on'); setTimeout(() => $('banner').classList.remove('on'), 8000); }
+renderWalk();
+</script>
 </body>
 </html>

@@ -7,6 +7,7 @@
   const KEY = 'netwalk.samples.v1';
   const SKEY = 'netwalk.settings.v1';
   const UKEY = 'netwalk.usage.v1';
+  const WKEY = 'netwalk.walk.v1';
   const ROSEAU = [15.3017, -61.3881];
 
   const ls = {
@@ -120,6 +121,7 @@
     s.speedScore = dlEst != null ? Math.round(speedScore(dlEst)) : null;
     samples.push(s); ls.set(KEY, samples);
     state.last = s;
+    { const w = ls.get(WKEY, null); if (w && w.active) { w.seen = s.t; ls.set(WKEY, w); } }
     emit('sample', s); emit('status', p.loss >= 1 ? 'No connection' : 'Measuring');
     if (state.running) state.timer = setTimeout(cycle, settings.interval * 1000);
   }
@@ -137,7 +139,7 @@
   async function wake() {
     try { if ('wakeLock' in navigator) state.wake = await navigator.wakeLock.request('screen'); } catch (e) { }
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.running) wake(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.running) { wake(); clearTimeout(state.timer); state.timer = setTimeout(cycle, 300); } });
 
   // ---- zones: hexagon bins ----
   const M_PER_DEG = 111320;
@@ -280,15 +282,26 @@
     get state() { return state; },
     get settings() { return settings; },
     setSettings(o) { Object.assign(settings, o); ls.set(SKEY, settings); },
-    start() {
+    start(resume) {
       if (state.running) return; state.running = true; startGeo(); wake();
-      emit('status', 'Starting…'); emit('running', true); cycle();
+      if (!resume) ls.set(WKEY, { start: Date.now(), dist: 0, active: true, seen: Date.now() });
+      emit('status', resume ? 'Walk resumed' : 'Starting…'); emit('running', true); cycle();
     },
     stop() {
       state.running = false; clearTimeout(state.timer);
+      const w = ls.get(WKEY, null); if (w) { w.active = false; w.end = Date.now(); ls.set(WKEY, w); }
       if (state.watchId != null) navigator.geolocation.clearWatch(state.watchId); state.watchId = null;
       try { state.wake && state.wake.release(); } catch (e) { } state.wake = null;
       emit('status', 'Stopped'); emit('running', false);
+    },
+    walk: () => ls.get(WKEY, null),
+    saveWalk(w) { ls.set(WKEY, w); },
+    // Resume a walk that was running when the page was closed or reloaded (within 30 min).
+    resumeIfActive() {
+      const w = ls.get(WKEY, null);
+      if (!w || !w.active) return false;
+      if (Date.now() - (w.seen || w.start) > 30 * 60000) { w.active = false; w.end = w.seen; ls.set(WKEY, w); return false; }
+      this.start(true); return true;
     },
     samples: () => samples, filterRange, byDay, hexZones, summarize, dayKey, reliabilityNow, usage,
     demo, clearDemo, clearAll, hasDemo, exportJSON, exportCSV, importJSON, download, median, mean
