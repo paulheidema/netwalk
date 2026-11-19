@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Walk Report">
+<meta name="theme-color" content="#0e4a52">
+<title>NetWalk · Daily Walk Report</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{--sea:#0e4a52;--sea2:#13606a;--sand:#f6efe3;--card:#fffaf1;--ink:#1f2a2b;--muted:#6f7a76;--line:#1f2a2b1a;--serif:ui-serif,"New York",Georgia,serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--sand);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+  header{background:var(--sea);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 18px 16px}
+  header .row{display:flex;justify-content:space-between;align-items:baseline}
+  header h1{font:600 24px/1.1 var(--serif);margin:0}
+  header a{color:#bfe9e2;font-size:13px;font-weight:600;text-decoration:none}
+  header p{margin:6px 0 0;color:#cfe5e1;font-size:13px}
+  main{padding:14px 14px calc(env(safe-area-inset-bottom) + 90px);max-width:560px;margin:0 auto}
+  .tab{display:none}.tab.on{display:block}
+  nav{position:fixed;left:0;right:0;bottom:0;background:#fffaf1f2;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;padding:6px 8px calc(env(safe-area-inset-bottom) + 6px);z-index:1000}
+  nav button{flex:1;border:0;background:none;padding:8px 0;font:600 12px -apple-system,system-ui;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px}
+  nav button svg{width:22px;height:22px}
+  nav button.on{color:var(--sea)}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid var(--line)}
+  .verdict{background:var(--sea2);color:#fff;border:0;text-align:center;padding:22px 16px}
+  .verdict .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;font-weight:700}
+  .verdict h2{font:600 28px/1.15 var(--serif);margin:8px 0 6px}
+  .verdict p{margin:0;opacity:.85;font-size:14px}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;vertical-align:1px;box-shadow:0 0 0 3px #ffffff33}
+  .go{width:100%;border:0;border-radius:14px;padding:15px;font:700 16px -apple-system,system-ui;background:#f2c12e;color:#2b2205;margin-top:16px}
+  .go.stop{background:#fff;color:var(--sea)}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+  .kpis b{display:block;font:600 22px/1.1 var(--serif);font-variant-numeric:tabular-nums}
+  .kpis span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  h3.sec{font:600 18px/1.2 var(--serif);margin:20px 4px 10px}
+  .uses div{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+  .uses div:first-child{border-top:0}
+  .ok{font-weight:700;font-size:13px}
+  #map{height:58vh;min-height:360px;border-radius:16px;border:1px solid var(--line);z-index:0}
+  .mapctl{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+  .nw-seg{--seg-bg:#1f2a2b0f}
+  .spots .spot{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}
+  .spots .spot:first-child{border-top:0}
+  .badge{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 14px -apple-system,system-ui;color:#fff;flex:none}
+  .spot .t{font-weight:600;font-size:14px}.spot .s{font-size:12.5px;color:var(--muted)}
+  .day h4{font:600 19px/1.2 var(--serif);margin:0;display:flex;justify-content:space-between;align-items:baseline}
+  .day h4 small{font:500 12px -apple-system,system-ui;color:var(--muted)}
+  .stack{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:12px 0}
+  .stack i{display:block;height:100%}
+  .day .facts{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:13.5px}
+  .day .facts span{color:var(--muted)}
+  .trend{font-size:13px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .up{color:#12a37f;font-weight:700}.down{color:#d8314a;font-weight:700}
+  .note{font-size:12.5px;color:var(--muted);line-height:1.45}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:10px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+  .empty{text-align:center;color:var(--muted);padding:26px 10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="row"><h1>Daily Walk Report</h1><a href="./">All versions</a></div>
+  <p id="sub">NetWalk · version 3</p>
+</header>
+
+<main>
+  <!-- WALK -->
+  <section class="tab on" id="t-walk">
+    <div class="card verdict">
+      <div class="k">Right here, right now</div>
+      <h2 id="verdict">Ready when you are</h2>
+      <p id="verdictsub">Start a walk and I'll test the connection every few seconds.</p>
+      <button class="go" id="go">Start walk</button>
+    </div>
+    <div class="card kpis">
+      <div><b id="k-score">—</b><span>Strength</span></div>
+      <div><b id="k-rel">—</b><span>Reliable</span></div>
+      <div><b id="k-dl">—</b><span>Mbps</span></div>
+    </div>
+    <h3 class="sec">What works here</h3>
+    <div class="card uses" id="uses"></div>
+    <h3 class="sec">This walk</h3>
+    <div class="card kpis">
+      <div><b id="w-time">0:00</b><span>Walking</span></div>
+      <div><b id="w-dist">0 m</b><span>Distance</span></div>
+      <div><b id="w-n">0</b><span>Readings</span></div>
+    </div>
+    <p class="note" id="gps" style="padding:0 4px">GPS off.</p>
+  </section>
+
+  <!-- MAP -->
+  <section class="tab" id="t-map">
+    <div class="mapctl">
+      <div id="metricseg"></div>
+      <div id="rangeseg"></div>
+    </div>
+    <div id="map"></div>
+    <div class="legend" id="legend"></div>
+    <p class="note" id="mapnote"></p>
+    <h3 class="sec">Most reliable spots</h3>
+    <div class="card spots" id="best"></div>
+    <h3 class="sec">Spots to avoid</h3>
+    <div class="card spots" id="worst"></div>
+  </section>
+
+  <!-- DAYS -->
+  <section class="tab" id="t-days">
+    <div class="card"><div class="note" id="rebuilt"></div></div>
+    <div id="days"></div>
+    <h3 class="sec">Settings &amp; your data</h3>
+    <div class="card" id="panel"></div>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-t="walk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1"/><path d="M2 9a14.5 14.5 0 0 1 20 0"/></svg>Walk</button>
+  <button data-t="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>Zones</button>
+  <button data-t="days"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Days</button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="core.js"></script>
+<script src="ui.js"></script>
+<script>
+const C = NetCore, U = NetUI, $ = id => document.getElementById(id);
+let metric = 'overall', range = 'all', map, ringLayer, me, walkStart = null, walkDist = 0, walkN = 0, lastPos = null;
+
+// ---------- tabs ----------
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 't-' + b.dataset.t));
+  if (b.dataset.t === 'map') { initMap(); setTimeout(() => { map.invalidateSize(); drawZones(true); }, 50); }
+  if (b.dataset.t === 'days') drawDays();
+  window.scrollTo(0, 0);
+});
+
+// ---------- WALK ----------
+const USES = [
+  ['WhatsApp messages', s => s.loss < 1 && (s.rtt ?? 9999) < 2500],
+  ['Web browsing & email', s => s.loss < .5 && (s.rtt ?? 9999) < 800 && (C.state.lastDl ?? 2) >= 1],
+  ['Voice / WhatsApp calls', s => s.loss === 0 && (s.rtt ?? 9999) < 300 && (s.jit ?? 0) < 60 && (C.state.lastDl ?? 1) >= .5],
+  ['Video calls (Zoom, FaceTime)', s => s.loss === 0 && (s.rtt ?? 9999) < 200 && (C.state.lastDl ?? 0) >= 4 && (C.reliabilityNow() ?? 0) >= 95],
+  ['Streaming video in HD', s => s.loss === 0 && (C.state.lastDl ?? 0) >= 8]
+];
+function verdictFor(s) {
+  if (s.loss >= 1) return ['No service here', 'Nothing got through on this test. Keep walking.'];
+  const ok = USES.filter(u => u[1](s)).length;
+  return [
+    ['Barely connected', 'Messages may crawl through. Try moving a few metres.'],
+    ['Messages only', 'Fine for WhatsApp texts. Calls will struggle.'],
+    ['Good for browsing', 'Web and email work. Calls may break up.'],
+    ['Good for calls', 'Voice calls should be clear.'],
+    ['Good for video calls', 'Strong and steady. Work calls are fine here.'],
+    ['Excellent', 'Fast and steady — the best you will get.']
+  ][ok];
+}
+function renderWalk(s) {
+  const b = C.band(s.score), [v, sub] = verdictFor(s);
+  $('verdict').innerHTML = `<span class="dot" style="background:${b.color}"></span>${v}`;
+  $('verdictsub').textContent = sub;
+  $('k-score').textContent = s.score; $('k-score').style.color = b.color;
+  $('k-rel').textContent = U.fmt.pct(C.reliabilityNow());
+  $('k-dl').textContent = C.state.lastDl == null ? '—' : (C.state.lastDl >= 10 ? Math.round(C.state.lastDl) : C.state.lastDl.toFixed(1));
+  $('uses').innerHTML = USES.map(([name, f]) => { const ok = f(s); return `<div><span>${name}</span><span class="ok" style="color:${ok ? '#12a37f' : '#d8314a'}">${ok ? 'Yes' : 'Unlikely'}</span></div>`; }).join('');
+  walkN++; $('w-n').textContent = walkN;
+}
+$('uses').innerHTML = USES.map(([n]) => `<div><span>${n}</span><span class="ok" style="color:var(--muted)">—</span></div>`).join('');
+setInterval(() => { if (walkStart) { const m = Math.floor((Date.now() - walkStart) / 60000); $('w-time').textContent = Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); } }, 5000);
+
+const dist = (a, b) => { const k = Math.cos(a[0] * Math.PI / 180); return Math.hypot((a[0] - b[0]) * 111320, (a[1] - b[1]) * 111320 * k); };
+C.on('position', p => {
+  if (!p) { $('gps').textContent = C.state.posErr || 'Waiting for GPS…'; return; }
+  $('gps').textContent = `GPS accurate to about ${Math.round(p.acc)} m. Keep this screen on while you walk.`;
+  const here = [p.lat, p.lon];
+  if (lastPos && p.acc < 30) { const d = dist(lastPos, here); if (d > 4 && d < 300) walkDist += d; }
+  if (p.acc < 30) lastPos = here;
+  $('w-dist').textContent = walkDist < 1000 ? Math.round(walkDist) + ' m' : (walkDist / 1000).toFixed(1) + ' km';
+  if (map) { me.setLatLng(here).addTo(map); }
+});
+C.on('sample', s => { renderWalk(s); if (map && $('t-map').classList.contains('on')) drawZones(false); });
+C.on('status', t => { if (t !== 'Measuring' && C.state.running && t !== 'Starting…') $('verdictsub').textContent = t; });
+C.on('running', on => {
+  $('go').textContent = on ? 'Finish walk' : 'Start walk'; $('go').classList.toggle('stop', on);
+  if (on) { walkStart = Date.now(); walkDist = 0; walkN = 0; lastPos = null; $('w-n').textContent = 0; }
+  else { $('gps').textContent = 'Walk finished. See the Zones and Days tabs for what you found.'; walkStart = null; }
+});
+$('go').onclick = () => C.state.running ? C.stop() : C.start();
+
+// ---------- ZONES (concentric rings) ----------
+function initMap() {
+  if (map) return;
+  map = L.map('map', { zoomControl: false }).setView(C.ROSEAU, 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  ringLayer = L.layerGroup().addTo(map);
+  me = L.circleMarker(C.ROSEAU, { radius: 8, color: '#fff', weight: 3, fillColor: '#2b6fff', fillOpacity: 1 });
+  if (C.state.pos) me.setLatLng([C.state.pos.lat, C.state.pos.lon]).addTo(map);
+}
+$('metricseg').append(U.seg([['overall', 'Overall'], ['speed', 'Speed'], ['reliability', 'Reliability']], metric, v => { metric = v; drawZones(false); }));
+$('rangeseg').append(U.seg([['today', 'Today'], ['3d', 'Last 3 days'], ['7d', 'Week'], ['all', 'All time']], range, v => { range = v; drawZones(true); }));
+$('legend').innerHTML = C.BANDS.map(b => `<span><i style="background:${b.color}"></i>${b.label}</span>`).join('');
+
+let currentZones = [];
+function drawZones(fit) {
+  if (!map) return;
+  ringLayer.clearLayers();
+  const zones = C.hexZones(C.filterRange(C.samples(), range), 80, metric).filter(z => z.value != null);
+  currentZones = zones;
+  // Rings drawn in three passes (outer, middle, core) so strong cores always sit on top.
+  const rings = [[2.6, .07], [1.7, .13], [.85, .5]];
+  rings.forEach(([mult, op], i) => {
+    zones.slice().sort((a, b) => a.value - b.value).forEach(z => {
+      const b = C.band(z.value);
+      const c = L.circle(z.center, { radius: 80 * mult, stroke: i === 2, color: b.color, weight: 2, opacity: .9, fillColor: b.color, fillOpacity: op * (.45 + .55 * z.confidence) });
+      if (i === 2) c.bindPopup(U.zonePopup(z));
+      c.addTo(ringLayer);
+    });
+  });
+  $('mapnote').textContent = zones.length
+    ? `Each set of rings is one zone, rebuilt every time a reading comes in. The solid centre is where readings were taken; the soft rings show roughly how far that quality is likely to reach. Fainter = fewer readings.`
+    : 'No readings for this period yet. Start a walk, or load the demo walk from the Days tab to see how this looks.';
+  if (fit && zones.length) map.fitBounds(L.latLngBounds(zones.map(z => z.center)).pad(.2));
+  drawSpots(zones);
+}
+
+function compass(from, to) {
+  const d = dist(from, to); const ang = Math.atan2((to[1] - from[1]) * Math.cos(from[0] * Math.PI / 180), to[0] - from[0]) * 180 / Math.PI;
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']; const dir = dirs[Math.round(((ang + 360) % 360) / 45) % 8];
+  return d < 40 ? 'right where you started' : `${d < 1000 ? Math.round(d / 10) * 10 + ' m' : (d / 1000).toFixed(1) + ' km'} ${dir} of where you usually start`;
+}
+function homeGuess() {
+  const firsts = C.byDay(C.samples().filter(s => s.lat != null)).map(d => d.items.find(s => s.lat != null)).filter(Boolean);
+  if (!firsts.length) return C.ROSEAU;
+  return [C.median(firsts.map(s => s.lat)), C.median(firsts.map(s => s.lon))];
+}
+function drawSpots(zones) {
+  const home = homeGuess();
+  const solid = zones.filter(z => z.n >= 4);
+  const pool = solid.length >= 3 ? solid : zones;
+  const row = z => { const b = C.band(z.value); return `<div class="spot" data-lat="${z.center[0]}" data-lon="${z.center[1]}"><div class="badge" style="background:${b.color}">${z.value}</div><div><div class="t">${b.label} · ${U.fmt.mbps(z.dl)}</div><div class="s">${compass(home, z.center)} · up ${z.uptime}% · ${z.n} readings</div></div></div>`; };
+  const best = pool.slice().sort((a, b) => b.value - a.value || b.n - a.n).slice(0, 4);
+  const worst = pool.slice().sort((a, b) => a.value - b.value || b.n - a.n).filter(z => z.value < 40).slice(0, 4);
+  $('best').innerHTML = best.length ? best.map(row).join('') : '<div class="empty">Walk around a bit and your best spots will show up here.</div>';
+  $('worst').innerHTML = worst.length ? worst.map(row).join('') : '<div class="empty">No weak spots found yet.</div>';
+  document.querySelectorAll('.spot').forEach(el => el.onclick = () => { map.flyTo([+el.dataset.lat, +el.dataset.lon], 17); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+}
+
+// ---------- DAYS ----------
+function drawDays() {
+  const all = C.samples();
+  const days = C.byDay(all);
+  $('rebuilt').innerHTML = all.length
+    ? `<b>Zones are rebuilt automatically</b> from all ${all.length} readings across ${days.length} day${days.length > 1 ? 's' : ''}. The more you walk the same streets, the more solid the map gets.${C.hasDemo() ? ' <br><b>Includes demo readings</b> — remove them below when you start using it for real.' : ''}`
+    : 'No walks yet. Start one from the Walk tab, or load the demo walk below to see what the reports look like.';
+  $('days').innerHTML = days.map((d, i) => {
+    const prev = days[i + 1];
+    const counts = C.BANDS.map(b => d.items.filter(s => C.band(s.score) === b).length);
+    const stack = C.BANDS.map((b, j) => counts[j] ? `<i style="width:${counts[j] / d.n * 100}%;background:${b.color}"></i>` : '').join('');
+    const mins = Math.round((d.last - d.first) / 60000);
+    const dead = d.items.filter(s => s.loss >= 1).length;
+    let trend = '';
+    if (prev) { const diff = d.score - prev.score; trend = `<div class="trend">${diff === 0 ? 'Same as' : diff > 0 ? `<span class="up">▲ ${diff} points better</span> than` : `<span class="down">▼ ${-diff} points worse</span> than`} ${/^(Today|Yesterday)$/.test(U.fmt.day(prev.day)) ? U.fmt.day(prev.day).toLowerCase() : U.fmt.day(prev.day)}${d.dl != null && prev.dl != null ? ` · speed ${d.dl >= prev.dl ? 'up' : 'down'} from ${U.fmt.mbps(prev.dl)}` : ''}</div>`; }
+    const b = C.band(d.score);
+    return `<div class="card day"><h4>${U.fmt.day(d.day)}<small>${U.fmt.time(d.first)}–${U.fmt.time(d.last)} · ${mins} min</small></h4>
+      <div class="stack">${stack}</div>
+      <div class="facts">
+        <div><span>Typical strength</span><br><b style="color:${b.color}">${d.score} · ${b.label}</b></div>
+        <div><span>Typical speed</span><br><b>${U.fmt.mbps(d.dl)}</b></div>
+        <div><span>Connected</span><br><b>${d.uptime}% of the time</b></div>
+        <div><span>Typical ping</span><br><b>${U.fmt.ms(d.rtt)}</b></div>
+        <div><span>Dropouts</span><br><b>${dead}</b></div>
+        <div><span>Readings</span><br><b>${d.n}</b></div>
+      </div>${trend}</div>`;
+  }).join('');
+}
+$('panel').append(U.dataPanel(() => { drawDays(); drawZones(true); }));
+
+const last = C.samples().slice(-1)[0];
+$('sub').textContent = last ? `Last reading: ${U.fmt.day(C.dayKey(last.t))},  ${U.fmt.time(last.t)}` : 'NetWalk · version 3';
+</script>
+</body>
+</html>

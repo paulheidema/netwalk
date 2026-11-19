@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Coverage Map">
+<meta name="theme-color" content="#0d1117">
+<title>NetWalk · Coverage Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{--ink:#eef2f0;--muted:#93a09a;--glass:#121a1fe6;--line:#ffffff1f;--seg-bg:#ffffff14;--seg-on:#ffffff26;--btn-bg:#ffffff10}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#0d1117;color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;overflow:hidden}
+  #map{position:fixed;inset:0;background:#0d1117}
+  .top{position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 10px);z-index:500;display:flex;flex-direction:column;gap:8px}
+  .bar{display:flex;gap:8px;align-items:center}
+  .glass{background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px}
+  .title{padding:9px 12px;font-weight:700;font-size:15px;flex:1;display:flex;justify-content:space-between;align-items:center}
+  .title a{color:#7fe0c4;text-decoration:none;font-size:13px;font-weight:600}
+  .chips{padding:4px}
+  .chips .nw-seg{background:transparent}
+  .chips .nw-seg button{font-size:12.5px;padding:7px 4px}
+  .legend{display:flex;justify-content:space-between;padding:7px 10px;font-size:11px;color:var(--muted)}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  .sheet{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 10px);z-index:500;padding:12px}
+  .hud{display:flex;align-items:center;gap:12px}
+  .pill{width:64px;height:64px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;font:800 26px/1 -apple-system,system-ui;background:#ffffff14;flex:none;transition:background .4s}
+  .pill small{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;opacity:.85}
+  .stats{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;min-width:0}
+  .stats div{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .stats b{display:block;color:var(--ink);font-size:17px;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums;margin-top:2px}
+  .row2{display:flex;gap:8px;margin-top:10px}
+  .go{flex:1;border:0;border-radius:12px;padding:13px;font:700 15px -apple-system,system-ui;background:#16c79a;color:#04241b}
+  .go.stop{background:#ff5d6c;color:#fff}
+  .icon{width:48px;border:1px solid var(--line);background:#ffffff10;color:var(--ink);border-radius:12px;font-size:18px}
+  .status{font-size:12px;color:var(--muted);margin-top:8px;display:flex;justify-content:space-between}
+  .drawer{display:none;max-height:52vh;overflow:auto;margin-top:10px;border-top:1px solid var(--line);padding-top:4px}
+  .drawer.open{display:block}
+  .leaflet-container{font-family:inherit}
+  .leaflet-control-attribution{background:#0008!important;color:#aaa!important}
+  .leaflet-control-attribution a{color:#ccc!important}
+  .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#18222a;color:var(--ink)}
+  .zoominfo{font-size:11.5px;color:var(--muted);padding:0 4px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="top">
+  <div class="bar"><div class="glass title"><span>Coverage Map</span><a href="./">All versions</a></div></div>
+  <div class="glass chips" id="metric"></div>
+  <div class="glass chips" id="range"></div>
+  <div class="glass legend" id="legend"></div>
+</div>
+
+<div class="glass sheet">
+  <div class="hud">
+    <div class="pill" id="pill">—<small>score</small></div>
+    <div class="stats">
+      <div>Speed<b id="dl">—</b></div>
+      <div>Ping<b id="rtt">—</b></div>
+      <div>Reliable<b id="rel">—</b></div>
+    </div>
+  </div>
+  <div class="row2">
+    <button class="go" id="go">Start walk</button>
+    <button class="icon" id="locate" title="Centre on me">◎</button>
+    <button class="icon" id="more" title="Settings">⋯</button>
+  </div>
+  <div class="status"><span id="status">Zones update after every reading.</span><span id="gps"></span></div>
+  <div class="drawer" id="drawer">
+    <div class="nw-panel"><h3>Zone size</h3></div>
+    <div id="sizeseg"></div>
+    <div id="panel"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="core.js"></script>
+<script src="ui.js"></script>
+<script>
+const C = NetCore, U = NetUI, $ = id => document.getElementById(id);
+let metric = 'overall', range = 'all', size = +(localStorage.getItem('nw.v2.size') || 45), follow = true;
+
+const map = L.map('map', { zoomControl: false }).setView(C.ROSEAU, 15);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20, subdomains: 'abcd', attribution: '© OpenStreetMap © CARTO' }).addTo(map);
+const zoneLayer = L.layerGroup().addTo(map), trailLayer = L.layerGroup().addTo(map);
+const me = L.circleMarker(C.ROSEAU, { radius: 9, color: '#fff', weight: 3, fillColor: '#3d8bff', fillOpacity: 1 });
+const meAcc = L.circle(C.ROSEAU, { radius: 10, color: '#3d8bff', weight: 1, fillOpacity: .1 });
+map.on('dragstart', () => follow = false);
+
+$('metric').append(U.seg([['overall', 'Overall'], ['speed', 'Speed'], ['reliability', 'Reliability']], metric, v => { metric = v; draw(false); }));
+$('range').append(U.seg([['today', 'Today'], ['yesterday', 'Yesterday'], ['3d', '3 days'], ['all', 'All time']], range, v => { range = v; draw(true); }));
+$('sizeseg').append(U.seg([[25, 'Street'], [45, 'Block'], [90, 'Neighbourhood']], size, v => { size = v; try { localStorage.setItem('nw.v2.size', v); } catch (e) { } draw(false); }));
+$('legend').innerHTML = C.BANDS.slice().reverse().map(b => `<span><i style="background:${b.color}"></i>${b.label}</span>`).join('');
+
+function draw(fit) {
+  zoneLayer.clearLayers(); trailLayer.clearLayers();
+  const list = C.filterRange(C.samples(), range);
+  const zones = C.hexZones(list, size, metric).filter(z => z.value != null);
+  zones.forEach(z => {
+    const b = C.band(z.value);
+    L.polygon(z.corners, { color: b.color, weight: 1.2, opacity: .9, fillColor: b.color, fillOpacity: .18 + .5 * z.confidence })
+      .bindPopup(U.zonePopup(z)).addTo(zoneLayer);
+  });
+  // today's path as a thin line
+  const today = C.filterRange(C.samples(), 'today').filter(s => s.lat != null && !s.demo);
+  if (today.length > 1) L.polyline(today.map(s => [s.lat, s.lon]), { color: '#ffffff', weight: 2, opacity: .45, dashArray: '2 6' }).addTo(trailLayer);
+  if (!zones.length) $('status').textContent = metric === 'speed' && list.length ? 'No speed tests in this period — turn them on in ⋯' : 'No readings for this period yet.';
+  else $('status').textContent = `${zones.length} zones · ${list.length} readings`;
+  if (fit && zones.length) map.fitBounds(L.latLngBounds(zones.flatMap(z => z.corners)).pad(.1));
+}
+
+function hud(s) {
+  const b = C.band(s.score);
+  $('pill').innerHTML = `${s.score}<small>${b.label}</small>`; $('pill').style.background = b.color + 'cc';
+  $('dl').textContent = U.fmt.mbps(C.state.lastDl); $('rtt').textContent = U.fmt.ms(s.rtt);
+  $('rel').textContent = U.fmt.pct(C.reliabilityNow());
+}
+
+C.on('sample', s => { hud(s); draw(false); });
+C.on('data', () => draw(true));
+C.on('status', t => { if (t !== 'Measuring') $('status').textContent = t; });
+C.on('position', p => {
+  if (!p) { $('gps').textContent = C.state.posErr || ''; return; }
+  $('gps').textContent = `GPS ±${Math.round(p.acc)} m`;
+  me.setLatLng([p.lat, p.lon]).addTo(map); meAcc.setLatLng([p.lat, p.lon]).setRadius(p.acc).addTo(map);
+  if (follow) map.setView([p.lat, p.lon], Math.max(map.getZoom(), 16));
+});
+C.on('running', on => { $('go').textContent = on ? 'Stop walk' : 'Start walk'; $('go').classList.toggle('stop', on); if (on) follow = true; });
+$('go').onclick = () => C.state.running ? C.stop() : C.start();
+$('locate').onclick = () => { follow = true; const p = C.state.pos; if (p) map.setView([p.lat, p.lon], 17); else draw(true); };
+$('more').onclick = () => $('drawer').classList.toggle('open');
+$('panel').append(U.dataPanel(() => draw(true)));
+draw(true);
+</script>
+</body>
+</html>
